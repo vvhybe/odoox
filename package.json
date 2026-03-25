@@ -48,8 +48,8 @@
     "lint:fix": "eslint src tests --fix",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\"",
-    "prepublishOnly": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build",
-    "release": "pnpm run prepublishOnly && pnpm publish",
+    "prepublishOnly": "npm run lint && npm run typecheck && npm run test && npm run build",
+    "release": "npm run prepublishOnly && npm publish",
     "commit": "cz",
     "prepare": "husky"
   },
@@ -112,5 +112,25 @@
   "homepage": "https://github.com/vvhybe/nodoo#readme",
   "dependencies": {
     "jsdom": "^29.0.1"
+  },
+  "overrides": {
+    "@typescript-eslint/eslint-plugin": {
+      "typescript": "6.0.2"
+    },
+    "@typescript-eslint/parser": {
+      "typescript": "6.0.2"
+    },
+    "@typescript-eslint/type-utils": {
+      "typescript": "6.0.2"
+    },
+    "@typescript-eslint/utils": {
+      "typescript": "6.0.2"
+    },
+    "typescript-eslint": {
+      "typescript": "6.0.2"
+    },
+    "lodash": "^4.17.23",
+    "tmp": "^0.2.4",
+    "minimist": "^1.2.6"
   }
 }
