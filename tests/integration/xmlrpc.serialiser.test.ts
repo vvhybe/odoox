@@ -144,6 +144,21 @@ describe("deserialiseXmlRpc", () => {
       </methodResponse>`;
     expect(await deserialiseXmlRpc(xml)).toEqual([{ id: 1, name: "Test" }]);
   });
+
+  it("parses a double response", async () => {
+    const xml = `<methodResponse><params><param><value><double>3.14</double></value></param></params></methodResponse>`;
+    expect(await deserialiseXmlRpc(xml)).toBe(3.14);
+  });
+
+  it("parses a nil response", async () => {
+    const xml = `<methodResponse><params><param><value><nil/></value></param></params></methodResponse>`;
+    expect(await deserialiseXmlRpc(xml)).toBe(null);
+  });
+
+  it("parses a base64 response", async () => {
+    const xml = `<methodResponse><params><param><value><base64>SGVsbG8=</base64></value></param></params></methodResponse>`;
+    expect(await deserialiseXmlRpc(xml)).toBe("SGVsbG8=");
+  });
 });
 
 // ─── Round-trip ───────────────────────────────────────────────────────────────

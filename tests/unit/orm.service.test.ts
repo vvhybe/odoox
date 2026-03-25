@@ -18,6 +18,7 @@ const mockSession: OdooSession = {
 const mockJsonRpc = {
   callKw: vi.fn(),
   call: vi.fn(),
+  searchRead: vi.fn(),
 } as unknown as JsonRpcClient;
 
 const mockXmlRpc = {
@@ -221,6 +222,86 @@ describe("OrmService", () => {
         { name: "C" },
       ]);
       expect(ids).toEqual([10, 11, 12]);
+    });
+  });
+
+  describe("XML-RPC Protocol", () => {
+    beforeEach(() => {
+      const xmlConfig: OdooConfig = { ...baseConfig, protocol: "xmlrpc" };
+      orm = new OrmService(xmlConfig, mockAuth, mockJsonRpc, mockXmlRpc);
+    });
+
+    it("calls xmlRpc.executeKw for searchRead", async () => {
+      (mockXmlRpc.executeKw as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { id: 1 },
+      ]);
+      await orm.searchRead("res.partner");
+      expect(mockXmlRpc.executeKw).toHaveBeenCalledWith(
+        "test-db",
+        2,
+        "password",
+        "res.partner",
+        "search_read",
+        [[]],
+        expect.any(Object),
+      );
+    });
+  });
+
+  describe("Odoo Version Variations", () => {
+    it("uses legacy searchRead for Odoo < 16", async () => {
+      const v15Config: OdooConfig = { ...baseConfig, version: 15 };
+      orm = new OrmService(v15Config, mockAuth, mockJsonRpc, mockXmlRpc);
+
+      const mockResult = { records: [{ id: 1 }] };
+      (mockJsonRpc.searchRead as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResult,
+      );
+
+      const result = await orm.searchRead("res.partner");
+      expect(result).toEqual(mockResult.records);
+      expect(mockJsonRpc.searchRead).toHaveBeenCalled();
+    });
+
+    it("uses positional args for nameSearch on Odoo 19+", async () => {
+      const v19Config: OdooConfig = { ...baseConfig, version: 19 };
+      orm = new OrmService(v19Config, mockAuth, mockJsonRpc, mockXmlRpc);
+      await orm.nameSearch("res.partner", "Acme");
+      expect(mockJsonRpc.callKw).toHaveBeenCalledWith(
+        "res.partner",
+        "name_search",
+        ["Acme", []],
+        expect.any(Object),
+      );
+    });
+
+    it("uses kwargs for nameSearch on Odoo <= 18", async () => {
+      const v18Config: OdooConfig = { ...baseConfig, version: 18 };
+      orm = new OrmService(v18Config, mockAuth, mockJsonRpc, mockXmlRpc);
+      await orm.nameSearch("res.partner", "Acme");
+      expect(mockJsonRpc.callKw).toHaveBeenCalledWith(
+        "res.partner",
+        "name_search",
+        [],
+        expect.objectContaining({ name: "Acme", args: [] }),
+      );
+    });
+  });
+
+  describe("Error Fallbacks", () => {
+    it("falls back to sequential create in createMany if batch fails", async () => {
+      (mockJsonRpc.callKw as ReturnType<typeof vi.fn>)
+        .mockRejectedValueOnce(new Error("Batch failed"))
+        .mockResolvedValueOnce(10)
+        .mockResolvedValueOnce(11);
+
+      const ids = await orm.createMany("res.partner", [
+        { name: "A" },
+        { name: "B" },
+      ]);
+      expect(ids).toEqual([10, 11]);
+      // First call (batch) failed, then 2 individual calls
+      expect(mockJsonRpc.callKw).toHaveBeenCalledTimes(3);
     });
   });
 });

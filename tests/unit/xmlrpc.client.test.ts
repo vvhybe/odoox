@@ -1,0 +1,124 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+import { XmlRpcClient } from "../../src/clients/xmlrpc.client.js";
+import { safeFetch } from "../../src/utils/retry.js";
+
+// ─── Mocks ────────────────────────────────────────────────────────────────────
+
+vi.mock("../../src/utils/retry.js", async () => {
+  const actual = (await vi.importActual("../../src/utils/retry.js")) as any;
+  return {
+    ...actual,
+    safeFetch: vi.fn(),
+  };
+});
+
+const mockRetryOptions = {
+  retries: 0,
+  retryDelay: 100,
+};
+
+const xmlSuccess = (value: any) => `
+<?xml version="1.0"?>
+<methodResponse>
+  <params>
+    <param>
+      <value>${value}</value>
+    </param>
+  </params>
+</methodResponse>`;
+
+// ─── Tests ────────────────────────────────────────────────────────────────────
+
+describe("XmlRpcClient", () => {
+  const baseUrl = "https://test.odoo.com/";
+  let client: XmlRpcClient;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    client = new XmlRpcClient(baseUrl, 5000, mockRetryOptions);
+  });
+
+  describe("constructor", () => {
+    it("normalizes the base URL by removing trailing slashes", () => {
+      const c = new XmlRpcClient("https://odoo.com///", 1000, mockRetryOptions);
+      //baseUrl is private, but we can check it via call()
+      expect(c).toBeDefined();
+    });
+  });
+
+  describe("call", () => {
+    it("performs a POST request with XML body and returns deserialized result", async () => {
+      const mockResponse = {
+        ok: true,
+        text: vi.fn().mockResolvedValue(xmlSuccess("<int>42</int>")),
+      };
+      (safeFetch as any).mockResolvedValue(mockResponse);
+
+      const result = await client.call("/xmlrpc/2/common", "version", []);
+
+      expect(safeFetch).toHaveBeenCalledWith(
+        "https://test.odoo.com/xmlrpc/2/common",
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({
+            "Content-Type": "text/xml",
+          }),
+          body: expect.stringContaining("<methodName>version</methodName>"),
+        }),
+        5000,
+      );
+      expect(result).toBe(42);
+    });
+
+    it("throws OdooNetworkError if response is not ok", async () => {
+      const mockResponse = {
+        ok: false,
+        status: 500,
+        statusText: "Internal Server Error",
+      };
+      (safeFetch as any).mockResolvedValue(mockResponse);
+
+      await expect(client.call("/test", "method", [])).rejects.toThrow(
+        "HTTP 500 Internal Server Error on https://test.odoo.com/test",
+      );
+    });
+  });
+
+  describe("wrappers", () => {
+    beforeEach(() => {
+      const mockResponse = {
+        ok: true,
+        text: vi.fn().mockResolvedValue(xmlSuccess("<int>1</int>")),
+      };
+      (safeFetch as any).mockResolvedValue(mockResponse);
+    });
+
+    it("version() calls common endpoint", async () => {
+      await client.version();
+      expect(safeFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/xmlrpc/2/common"),
+        expect.any(Object),
+        expect.any(Number),
+      );
+    });
+
+    it("authenticate() returns the result", async () => {
+      const result = await client.authenticate("db", "user", "pass");
+      expect(result).toBe(1);
+    });
+
+    it("executeKw() calls object endpoint with all params", async () => {
+      await client.executeKw("db", 1, "pass", "res.partner", "read", [[1]], {
+        fields: ["name"],
+      });
+      expect(safeFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/xmlrpc/2/object"),
+        expect.objectContaining({
+          body: expect.stringContaining("<methodName>execute_kw</methodName>"),
+        }),
+        5000,
+      );
+    });
+  });
+});

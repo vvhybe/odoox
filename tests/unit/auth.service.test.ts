@@ -111,7 +111,29 @@ describe("AuthService", () => {
     });
   });
 
+  describe("authenticate (api key)", () => {
+    it("uses API key if provided", async () => {
+      (mockXmlRpc.authenticate as ReturnType<typeof vi.fn>).mockResolvedValue(
+        100,
+      );
+      const service = makeService({ ...baseConfig, apiKey: "my-key" });
+      const session = await service.authenticate();
+      expect(session.uid).toBe(100);
+      expect(mockXmlRpc.authenticate).toHaveBeenCalledWith(
+        "testdb",
+        "admin@test.com",
+        "my-key",
+      );
+    });
+  });
+
   describe("config validation", () => {
+    it("throws OdooConfigError if username is missing and no apiKey", async () => {
+      const service = makeService({ ...baseConfig, username: "" });
+      await expect(service.authenticate()).rejects.toBeInstanceOf(
+        OdooConfigError,
+      );
+    });
     it("throws OdooConfigError if url is missing", async () => {
       const service = makeService({ ...baseConfig, url: "" });
       await expect(service.authenticate()).rejects.toBeInstanceOf(
@@ -138,6 +160,16 @@ describe("AuthService", () => {
     it("requireSession throws before authentication", () => {
       const service = makeService();
       expect(() => service.requireSession()).toThrow(OdooAuthenticationError);
+    });
+
+    it("requireSession returns session after authentication", async () => {
+      (mockXmlRpc.authenticate as ReturnType<typeof vi.fn>).mockResolvedValue(
+        50,
+      );
+      const service = makeService({ ...baseConfig, protocol: "xmlrpc" });
+      await service.authenticate();
+      const session = service.requireSession();
+      expect(session.uid).toBe(50);
     });
 
     it("isAuthenticated returns false before authentication", () => {
