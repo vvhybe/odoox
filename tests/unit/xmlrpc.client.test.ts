@@ -6,7 +6,9 @@ import { safeFetch } from "../../src/utils/retry.js";
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
 vi.mock("../../src/utils/retry.js", async () => {
-  const actual = (await vi.importActual("../../src/utils/retry.js")) as any;
+  const actual = await vi.importActual<
+    typeof import("../../src/utils/retry.js")
+  >("../../src/utils/retry.js");
   return {
     ...actual,
     safeFetch: vi.fn(),
@@ -18,7 +20,7 @@ const mockRetryOptions = {
   retryDelay: 100,
 };
 
-const xmlSuccess = (value: any) => `
+const xmlSuccess = (value: string) => `
 <?xml version="1.0"?>
 <methodResponse>
   <params>
@@ -53,7 +55,9 @@ describe("XmlRpcClient", () => {
         ok: true,
         text: vi.fn().mockResolvedValue(xmlSuccess("<int>42</int>")),
       };
-      (safeFetch as any).mockResolvedValue(mockResponse);
+      vi.mocked(safeFetch).mockResolvedValue(
+        mockResponse as unknown as Response,
+      );
 
       const result = await client.call("/xmlrpc/2/common", "version", []);
 
@@ -77,7 +81,9 @@ describe("XmlRpcClient", () => {
         status: 500,
         statusText: "Internal Server Error",
       };
-      (safeFetch as any).mockResolvedValue(mockResponse);
+      vi.mocked(safeFetch).mockResolvedValue(
+        mockResponse as unknown as Response,
+      );
 
       await expect(client.call("/test", "method", [])).rejects.toThrow(
         "HTTP 500 Internal Server Error on https://test.odoo.com/test",
@@ -91,7 +97,9 @@ describe("XmlRpcClient", () => {
         ok: true,
         text: vi.fn().mockResolvedValue(xmlSuccess("<int>1</int>")),
       };
-      (safeFetch as any).mockResolvedValue(mockResponse);
+      vi.mocked(safeFetch).mockResolvedValue(
+        mockResponse as unknown as Response,
+      );
     });
 
     it("version() calls common endpoint", async () => {
