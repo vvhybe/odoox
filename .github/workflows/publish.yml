@@ -127,7 +127,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: @vvhybe/odoo-client ${{ github.ref_name }}
+          name: "@vvhybe/odoo-client ${{ github.ref_name }}"
           body: |
             ## What's changed
 
