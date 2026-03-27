@@ -1,5 +1,5 @@
 name: Bug Report 🐛
-description: Report a bug in Odoox library
+description: Report a bug in Odoo-SDK library
 labels: ["bug"]
 body:
   - type: markdown
